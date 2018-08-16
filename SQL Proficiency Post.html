@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Blog Post that Shows I Know SQL</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><h1 id="the-sql-proficiency-blog-post">The SQL Proficiency Blog Post</h1>
+<p>SQL is the bread and butter of data jobs. If you can’t get the data, you can’t analyze, engineer, or train models on it, so it makes sense that the vast majority of data jobs list SQL as a necessary skill early on.</p>
+<p>However, it is one of the trickiest skills to demonstrate knowledge of in portfolios. I think this is for several reasons. One, only very rarely do personal users have databases worth doing any interesting queries on. Two, SQL queries are highly dependent upon the schema and tables in which they were built, so it makes little to no sense to share them on Github. And three, most people learn SQL by doing on the job or on courses online.</p>
+<blockquote>
+<p>If you are looking for resources to learn SQL (especially postgreSQL), I have an <a href="https://docs.google.com/document/d/1GLqRttxuYF299igCenltlNKjZx8l9chHO0sp5EEKo1I/edit?usp=sharing">incomplete guide</a> in a Google Doc you may want to check out.</p>
+</blockquote>
+<p>I am looking for work at the moment and this is my attempt to square that circle and demonstrate my SQL knowledge in a blog post. Without further ado (and with tongue firmly in cheek), I present: The SQL Proficiency Blog Post</p>
+<h2 id="the-data">The Data</h2>
+<p>The data I will be using is a database I synthesized using python for an imaginary app that you can use to book a helper for moving, much like TaskRabbit or other gig economy platforms. I call it Helpr (very original) and it consists of three tables:</p>
+<h4 id="customer-table">Customer Table</h4>
+<p>A list of customer names, the date they signed up, whether they are a premium member (let’s say that’s a one-time payment of $10), how they heard about the app, and their rating as a customer. There are 200 customers generated via the following python code (the names came from a name generator website)</p>
+<pre><code>    customers = pd.DataFrame(index = ['C'+str(x) for x in range(200)],
+    data={
+        'first_name': [x.split()[0] for x in names[50:]],
+        'last_name': [x.split()[1] for x in names[50:]],
+        'signup_date': [start_date + dt.timedelta(days=float(x)) for x in np.random.poisson(30, 200)],
+        'method': np.random.choice(['Email','Web Ad','Word of Mouth','Facebook Ad','Google'], 200),
+        'premium': np.random.randint(low=0, high=2, size=(200,)),
+        'user_rating': [5 if x&gt;5 else x for x in [round(x+4,2) for x in np.random.randn(200, )]]   })
+</code></pre>
+<p>Preview:</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>first_name</th>
+<th>last_name</th>
+<th>method</th>
+<th>premium</th>
+<th>signup_date</th>
+<th>user_rating</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C0</td>
+<td>Cavan</td>
+<td>Neville</td>
+<td>Google</td>
+<td>0</td>
+<td>2018-08-20</td>
+<td>3.48</td>
+</tr>
+<tr>
+<td>C1</td>
+<td>Mercy</td>
+<td>Merrill</td>
+<td>Facebook Ad</td>
+<td>0</td>
+<td>2018-08-18</td>
+<td>2.34</td>
+</tr>
+<tr>
+<td>C2</td>
+<td>Cassidy</td>
+<td>Brandt</td>
+<td>Word of Mouth</td>
+<td>1</td>
+<td>2018-08-19</td>
+<td>2.53</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>Bernice</td>
+<td>Weaver</td>
+<td>Word of Mouth</td>
+<td>1</td>
+<td>2018-08-09</td>
+<td>4.62</td>
+</tr>
+</tbody>
+</table><h4 id="helper-table">Helper table</h4>
+<p>A table listing 50 helpers, with first names, last names, whether that person is a “power lifter”, their self-set hourly rate, the date of that person’s first job, and their rating by the customers.</p>
+<pre><code>    helpers = pd.DataFrame(index = ['H'+str(x) for x in range(50)],
+    data={
+        'first_name': [x.split()[0] for x in names[:50]],
+        'last_name': [x.split()[1] for x in names[:50]],
+        'first_job': [start_date + dt.timedelta(days=float(x)) for x in np.random.poisson(15, 50)],
+        'hourly': np.random.randint(12,36,50),
+        'power_lifter': np.random.randint(low=0, high=2, size=(50,)),
+        'rating': [5 if x&gt;5 else x for x in [round(x+4,2) for x in np.random.randn(50, )]]    })
+</code></pre>
+<p>Preview:</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>first_job</th>
+<th>first_name</th>
+<th>hourly</th>
+<th>last_name</th>
+<th>power_lifter</th>
+<th>rating</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H0</td>
+<td>2018-07-29</td>
+<td>Eva</td>
+<td>12</td>
+<td>Salt</td>
+<td>1</td>
+<td>2.25</td>
+</tr>
+<tr>
+<td>H1</td>
+<td>2018-08-02</td>
+<td>Mimi</td>
+<td>23</td>
+<td>Vincent</td>
+<td>0</td>
+<td>4.77</td>
+</tr>
+<tr>
+<td>H2</td>
+<td>2018-07-29</td>
+<td>Anayah</td>
+<td>23</td>
+<td>Lawson</td>
+<td>0</td>
+<td>4.92</td>
+</tr>
+<tr>
+<td>H3</td>
+<td>2018-07-31</td>
+<td>Victor</td>
+<td>22</td>
+<td>Duran</td>
+<td>1</td>
+<td>4.36</td>
+</tr>
+</tbody>
+</table><h4 id="jobs-table">Jobs table</h4>
+<p>A list of 500 jobs performed on the service since it started, with customer IDs, helper IDs (most jobs having one, but some having two helpers), the date the job was booked, the date of the job itself, the number of hours of the job, and whether or not the customer logged a complaint about the job. In the code below, the job booking and execution dates had to be generated a little differently since it had to come after the sign-up date of both the helper(s) and the customer, and the booking had to come before the job itself.</p>
+<pre><code>    jobs = pd.DataFrame(index=['J'+str(x) for x in range(500)], data={
+    
+        'customer': ['C' + str(x) for x in np.random.randint(0,200,500)],
+        'helper': ['H' + str(x) for x in np.random.randint(0,50,500)],
+        'complaint': np.random.choice([0,1], 500, p=[.95,.05]),
+        'hours': [round(int(x)+6,0) for x in np.random.randn(500, )]
+        })
+    
+    job_book_dates, job_dates = [], []
+    for index, row in jobs.iterrows():
+        min_date = min([customers.loc[row['customer'],:].signup_date, 
+                   helpers.loc[row['helper'],:].first_job])
+        book_date = min_date+dt.timedelta(days=np.random.randint(1,45))
+        job_book_dates.append(book_date)
+        job_dates.append(book_date + dt.timedelta(days=np.random.randint(1,60)))
+        
+    jobs['job_book_date'] = job_book_dates
+    jobs['job_date'] = job_dates
+</code></pre>
+<p>Preview:</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>complaint</th>
+<th>customer</th>
+<th>helper</th>
+<th>hours</th>
+<th>job_book_date</th>
+<th>job_date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J0</td>
+<td>0</td>
+<td>C108</td>
+<td>H37</td>
+<td>6</td>
+<td>2018-08-30</td>
+<td>2018-10-07</td>
+</tr>
+<tr>
+<td>J1</td>
+<td>0</td>
+<td>C78</td>
+<td>H20</td>
+<td>5</td>
+<td>2018-09-16</td>
+<td>2018-10-01</td>
+</tr>
+<tr>
+<td>J2</td>
+<td>0</td>
+<td>C54</td>
+<td>H17</td>
+<td>6</td>
+<td>2018-08-16</td>
+<td>2018-08-21</td>
+</tr>
+<tr>
+<td>J3</td>
+<td>0</td>
+<td>C94</td>
+<td>H27</td>
+<td>6</td>
+<td>2018-09-07</td>
+<td>2018-09-20</td>
+</tr>
+</tbody>
+</table><p>These tables were then imported into a SQLite database, which you can download <a href="https://drive.google.com/open?id=12oRr21oQk8pSBbJo-WrO_lpU6g4wu0Pd">here</a> if you wish. Since I am using SQLite, some of the queries might be written differently than they would be with postgreSQL or MySQL, but I will try to make note of differences in key functions.</p>
+<blockquote>
+<p>Note: This data is randomly generated and meaningless, so meaningful trends will not be found. I also had to generate it again halfway through working on this (without a random seed, oops) so if you execute these queries on the same data you might not get the same results for some of the queries.</p>
+</blockquote>
+<h2 id="query-up">Query up!</h2>
+<h3 id="basics">Basics</h3>
+<p>Which customers signed up from a Google search?</p>
+<pre><code>select first_name, last_name 
+from customers 
+where method = 'Google';
+</code></pre>
+<p>Easy peasy. How about a table showing the total number of sign-ups across all the sign-up channels?</p>
+<pre><code>select method, count(method)
+from customers 
+group by method;
+</code></pre>
+<p>Result:</p>
+
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Email</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Facebook Ad</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Google</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Web Ad</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Word of Mouth</td>
+<td>41</td>
+</tr>
+</tbody>
+</table><p>A similar query for just premium customers:</p>
+<pre><code>select method, count(method) from customers
+where premium = '1'
+group by method;
+</code></pre>
+<p>All these are pretty simple and only involve one table. Let’s try getting the names of both the customer and the helpers for each job.</p>
+<pre><code>select j.id, c.first_name||' '||c.last_name, h.first_name||' '||h.last_name
+from jobs j inner join customers c on j.customer = c.ID
+inner join helpers h on j.helper = h.ID;
+</code></pre>
+<p>Restrict that down to the first fifteen days of September, and further to only jobs that had a complaint flagged on the job.</p>
+<pre><code>select j.id, c.first_name||' '||c.last_name as Customer, h.first_name||' '||h.last_name as Helper
+from jobs j inner join customers c on j.customer = c.ID
+inner join helpers h on j.helper = h.ID
+where j.job_date &gt;= '2018-09-01' 
+and j.job_date &lt; '2018-09-15'
+and j.complaint == 1;
+</code></pre>
+<p>Result:</p>
+
+<table>
+<thead>
+<tr>
+<th>Job ID</th>
+<th>Customer</th>
+<th>Helper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J9</td>
+<td>Harlan Bowen</td>
+<td>Jeffery Clegg</td>
+</tr>
+<tr>
+<td>J42</td>
+<td>Star Hernandez</td>
+<td>Aleesha Metcalfe</td>
+</tr>
+<tr>
+<td>J322</td>
+<td>Jordon Rawlings</td>
+<td>Caoimhe Mansell</td>
+</tr>
+</tbody>
+</table><h3 id="complaints">Complaints</h3>
+<p>A relevant concern to the business might be which of their helpers has the most complaints. To find the top 5 most complained about helpers, we can use the following query:</p>
+<pre><code>select h.first_name||' '||h.last_name as full_name, sum(complaint)
+from jobs j inner join helpers h on j.helper = h.ID
+group by full_name
+order by sum(complaint) desc
+limit 5;
+</code></pre>
+<p>Result:</p>
+
+<table>
+<thead>
+<tr>
+<th>full_name</th>
+<th>sum(complaint)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ansh Mcmahon</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Janae Crawford</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Rhyley Sierra</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Tariq Emery</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Aedan Beasley</td>
+<td>1</td>
+</tr>
+</tbody>
+</table><p>However, can we really say that Ansh is a particularly bad helper, or does she just do a lot of jobs? I’ll normalize to get the complaint rate to find out.</p>
+<pre><code>select h.first_name||' '||h.last_name as full_name, 
+(sum(complaint) *1.0/ count(complaint)) as c_rate,
+count(complaint) as n_jobs
+from jobs j inner join helpers h on j.helper = h.ID
+group by full_name
+order by c_rate desc
+limit 10;
+</code></pre>
+<p>Results:</p>
+
+<table>
+<thead>
+<tr>
+<th>full_name</th>
+<th>c_rate</th>
+<th>n_jobs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Janae Crawford</td>
+<td>0.333333333333333</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Chloe-Louise Boyd</td>
+<td>0.2</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Rhyley Sierra</td>
+<td>0.2</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Ansh Mcmahon</td>
+<td>0.166666666666667</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Sami Larsen</td>
+<td>0.166666666666667</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Tariq Emery</td>
+<td>0.166666666666667</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Corbin Garrison</td>
+<td>0.125</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Anabel Harrington</td>
+<td>0.111111111111111</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Rayan Dawe</td>
+<td>0.111111111111111</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Shauna Riggs</td>
+<td>0.111111111111111</td>
+<td>9</td>
+</tr>
+</tbody>
+</table><p>Ansh still isn’t doing too well, but she’s not actually generating the most complaints per job.</p>
+<p>One more question: Do longer jobs result in more complaints? This could be answered with OLS regression, but I’ll just generate a raw table of data to see:</p>
+<pre><code>    select hours as "Duration", 
+round(avg(complaint)*100)||"%" as "Complaint Rate"
+from jobs
+group by hours
+order by hours
+</code></pre>
+<p>Results:</p>
+
+<table>
+<thead>
+<tr>
+<th>Duration</th>
+<th>Complaint Rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4</td>
+<td>14.0%</td>
+</tr>
+<tr>
+<td>5</td>
+<td>2.0%</td>
+</tr>
+<tr>
+<td>6</td>
+<td>6.0%</td>
+</tr>
+<tr>
+<td>7</td>
+<td>4.0%</td>
+</tr>
+<tr>
+<td>8</td>
+<td>14.0%</td>
+</tr>
+</tbody>
+</table><h3 id="revenue">Revenue</h3>
+<p>I’ll continue with joins to calculate the total payment per job, first by calculating the total hourly rate payment for the first helper on the job.</p>
+<pre><code>select j.id, j.job_date, 
+h.first_name||' '||h.last_name as full_name, 
+j.hours * h.hourly as revenue
+from jobs j inner join helpers h on j.helper = h.ID
+order by revenue desc;
+</code></pre>
+<p>Results:</p>
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>job_date</th>
+<th>full_name</th>
+<th>revenue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J458</td>
+<td>2018-10-16</td>
+<td>Aedan Beasley</td>
+<td>245</td>
+</tr>
+<tr>
+<td>J476</td>
+<td>2018-10-12</td>
+<td>Aedan Beasley</td>
+<td>245</td>
+</tr>
+<tr>
+<td>J6</td>
+<td>2018-09-09</td>
+<td>Leonie Fritz</td>
+<td>238</td>
+</tr>
+<tr>
+<td>J113</td>
+<td>2018-09-07</td>
+<td>Leonie Fritz</td>
+<td>238</td>
+</tr>
+<tr>
+<td>J141</td>
+<td>2018-10-10</td>
+<td>Leonie Fritz</td>
+<td>238</td>
+</tr>
+</tbody>
+</table><p>What if we want to see the total earnings of each helper, sorted by the helper’s last name?</p>
+<pre><code>select j.id, j.job_date, 
+h.first_name||' '||h.last_name as full_name, 
+sum(j.hours * h.hourly )as revenue
+from jobs j inner join helpers h on j.helper = h.ID
+group by full_name
+order by h.last_name;
+</code></pre>
+<p>Results:</p>
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>job_date</th>
+<th>full_name</th>
+<th>revenue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J484</td>
+<td>2018-08-14</td>
+<td>Nabeel Alvarado</td>
+<td>2044</td>
+</tr>
+<tr>
+<td>J476</td>
+<td>2018-10-12</td>
+<td>Aedan Beasley</td>
+<td>2940</td>
+</tr>
+<tr>
+<td>J481</td>
+<td>2018-08-29</td>
+<td>Ramone Bennett</td>
+<td>1950</td>
+</tr>
+<tr>
+<td>J368</td>
+<td>2018-09-20</td>
+<td>Chloe-Louise Boyd</td>
+<td>465</td>
+</tr>
+<tr>
+<td>J442</td>
+<td>2018-10-26</td>
+<td>Gina Clay</td>
+<td>2046</td>
+</tr>
+</tbody>
+</table><h3 id="weekend-vs.-weekday">Weekend vs. Weekday</h3>
+<p>Do the duration and revenue of jobs differ depending if they are during the week versus on the weekend? This is a good case for case statements.</p>
+<pre><code>    select case 
+	when strftime('%w', job_date) not in ('0','6') then "Weekday"
+	else "Weekend" end as "Day Type",
+round(avg(hours),2) as "Average Hours",
+round(avg(hourly * hours)) as "Average Revenue"
+from jobs j inner join helpers h on j.helper = h.ID
+group by "Day Type"
+</code></pre>
+<p>Results:</p>
+
+<table>
+<thead>
+<tr>
+<th>Day Type</th>
+<th>Average Hours</th>
+<th>Average Revenue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Weekday</td>
+<td>5.98</td>
+<td>138.0</td>
+</tr>
+<tr>
+<td>Weekend</td>
+<td>6.06</td>
+<td>140.0</td>
+</tr>
+</tbody>
+</table><h3 id="time-to-first-booking">Time to First Booking</h3>
+<p>Does the duration between the customer’s sign-up date and their first job booking depend on how they heard about the platform?</p>
+<p>Along the way to answering that, we can first find out how many customers (out of 200) actually ended up booking jobs:</p>
+<pre><code>select count(*)
+from (select c.ID, min(job_book_date)
+			from customers c inner join jobs j
+			on j.customer = c.ID
+			group by c.ID)
+</code></pre>
+<p>This yields 187. I admit that is a long answer when a shorter one would have worked too, but it was easy to get while I built the subquery to answer the primary question here:</p>
+<pre><code>select method, round(avg(julianday(first_job)- julianday(signup_date)))
+as "Signup to Book"
+from (select c.ID, min(job_book_date) as first_job
+			from customers c inner join jobs j
+			on j.customer = c.ID
+			group by c.ID)
+inner join customers c
+using (ID)
+group by method
+</code></pre>
+<p>Result:</p>
+
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Average days to First Booking</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Email</td>
+<td>16.0</td>
+</tr>
+<tr>
+<td>Facebook Ad</td>
+<td>13.0</td>
+</tr>
+<tr>
+<td>Google</td>
+<td>9.0</td>
+</tr>
+<tr>
+<td>Web Ad</td>
+<td>13.0</td>
+</tr>
+<tr>
+<td>Word of Mouth</td>
+<td>12.0</td>
+</tr>
+</tbody>
+</table><p>It seems people using Google book most quickly.</p>
+<h2 id="experiments">Experiments</h2>
+<p>The product team has an idea: increase revenue by implementing a 10% surcharge when customers book on short notice for weekends.</p>
+<p>How much additional additional revenue could would that generate? A quick Python or Excel script to solve this could be made quickly, but it can be done in SQL. First, I can get an idea of how many jobs in our historical data fit the requirements - booked less than a week in advance for a job on the weekend.</p>
+<pre><code>select count(*)
+from jobs
+where (julianday(job_date) - julianday(job_book_date)) &lt; 7
+and strftime('%w', job_date) in ('0','6')
+</code></pre>
+<p>The result of this query is 16. Note that julianday() is a unique function to SQLite, other SQL flavors would generally use DATEDIFF to find the difference between two dates. To yield the additional revenue from those jobs:</p>
+<pre><code>select sum((j.hours * h.hourly) *.1) as additional_revenue
+from jobs j inner join helpers h 
+on j.helper = h.ID
+where (julianday(job_date) - julianday(job_book_date)) &lt; 7
+and strftime('%w', job_date) in ('0','6')
+</code></pre>
+<p>This returns a single value of $217.7 - not much revenue.</p>
+<h3 id="conclusion">Conclusion</h3>
+<p>Hopefully it has demonstrated at least an intermediate fluency with SQL. I could keep going and will probably update this more in the future. There are many other functions like ROLLUP, WITH (Common Table Expressions) and more I am comfortable with but not compatible with SQLite, so I did not include them here.</p>
+<blockquote>
+<p>Useful Resources for more SQL if you came here to learn:<br>
+<a href="https://pgexercises.com/">https://pgexercises.com/</a><br>
+<a href="https://www.w3schools.com/sql/default.asp">https://www.w3schools.com/sql/default.asp</a><br>
+<a href="https://community.modeanalytics.com/sql/tutorial/introduction-to-sql/">https://community.modeanalytics.com/sql/tutorial/introduction-to-sql/</a></p>
+<p>Also <a href="https://www.tablesgenerator.com/markdown_tables">https://www.tablesgenerator.com/markdown_tables</a> was invaluable in producing this post.</p>
+</blockquote>
+<p>Thanks for reading!</p>
+</div>
+</body>
+
+</html>
